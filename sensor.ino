@@ -13,9 +13,11 @@
 #define MODO 1
 
 #if MODO == 0
-#define CERROJO     //elegir entre cerrojo o servo
+    #define CERROJO     //elegir entre cerrojo o servo
 #elif MODO == 1
-#define SERVO
+    #define SERVO
+#else 
+    #error MODO IS NOT VALID
 #endif    
 
 
@@ -23,12 +25,13 @@ SoftwareSerial mySerial(SENSOR_TX, SENSOR_RX);
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 char strBuf[50];
 #ifdef SERVO
-Servo puerta;
+    Servo puerta;
 #endif
 
 
 /*
-
+    El codigo se compone del setup, en donde dependiendo del modo se preparan los pines para el servo, o el latch, 
+    luego se preparan los pines para el pin incluido en el arduino
 */
 
 void setup() {
@@ -56,10 +59,17 @@ void setup() {
 }
 
 void loop() {
-    verificarHuella();       //Verifica el Sensor de huella dactilar
+    autenticarHuella();       //Verifica la huella colocada en el Sensor de huella dactilar
     delay(50);              //Yamete kudasai!
 }
 
+/**************************************************************************/
+/*!
+    @brief  Verifica que el lector de huellas dactilares este conectado al
+    arduino, en caso contrario, deja parpadeando loop infinito al led 
+    integrado del arduino
+*/
+/**************************************************************************/
 void verificarModulo() {
     if (finger.verifyPassword()) {
         Serial.println("Detectado un sensor de huella!");
@@ -77,7 +87,15 @@ void verificarModulo() {
 }
 
 #if (defined(SERVO))
-void abrirPuerta() {
+/**************************************************************************/
+/*!
+    @brief  Gira 180 grados el servo por un tiempo para luego cerrarlo haciendo
+    sonar la alarma
+    TODO Eliminar el tiempo y hace que conmute entre cerrado y abierto con
+    el sensor de huellas
+*/
+/**************************************************************************/
+void abrirPuerta() {    //SERVO
     Serial.println(" AUTORIZADA *** ");
     digitalWrite(BUZZER_PIN, HIGH);     //Hace un sonido el buzzer
     puerta.write(180);                  //Gira el servo para abrir la puerta
@@ -89,7 +107,13 @@ void abrirPuerta() {
 }
 
 #elif (defined(CERROJO))
-void abrirPuerta() {
+/**************************************************************************/
+/*!
+    @brief  Da corriente al pin en donde esta conectado el cerrojo haciendo
+    sonar la alarma
+*/
+/**************************************************************************/
+void abrirPuerta() {    //CERROJO
     
     digitalWrite(BUZZER_PIN, HIGH);
     digitalWrite(LATCH_PIN, HIGH);
@@ -100,6 +124,11 @@ void abrirPuerta() {
 }
 #endif
 
+/**************************************************************************/
+/*!
+    @brief  Hace sonar el buzzer avisando de que la huella es incorrecta
+*/
+/**************************************************************************/
 void huellaIncorrecta() {
     for (int i = 0; i <= 5; i++) {      //*3,14 3,14 3,14 3,14*
         digitalWrite(BUZZER_PIN, i % 2);
@@ -108,10 +137,17 @@ void huellaIncorrecta() {
     digitalWrite(BUZZER_PIN, LOW);
 }
 
-int verificarHuella() {
+/**************************************************************************/
+/*!
+    @brief  Verifica que la huella colocada este registrada en el modulo
+    del arduino
+    @returns El ID de la huella, en caso de no encontrarla, retorna -1
+*/
+/**************************************************************************/
+int autenticarHuella() {
     uint8_t p = finger.getImage();
     if (p != FINGERPRINT_OK) return -1;
-
+    
     p = finger.image2Tz();
     if (p != FINGERPRINT_OK) return -1;
 
