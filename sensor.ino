@@ -1,32 +1,20 @@
 #include <Adafruit_Fingerprint.h>
 #include <Servo.h>
-#include "sensor.h"
 
 #define SENSOR_TX 2
 #define SENSOR_RX 3
-#define BUZZER_PIN 7
-#define SERVO_PIN 4
-#define LATCH_PIN 6
+#define RELE_ON 9
+#define RELE_OFF 10
 
-#define BUZZER_ERROR_TIME 200
 
-#define MODO 1
 
-#if MODO == 0
-    #define CERROJO     //elegir entre cerrojo o servo
-#elif MODO == 1
-    #define SERVO
-#else 
-    #error MODO IS NOT VALID
-#endif    
+ 
 
 
 SoftwareSerial mySerial(SENSOR_TX, SENSOR_RX);
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 char strBuf[50];
-#ifdef SERVO
-    Servo puerta;
-#endif
+bool estadoPuerta = false;
 
 
 /*
@@ -35,16 +23,10 @@ char strBuf[50];
 */
 
 void setup() {
-    pinMode(BUZZER_PIN, OUTPUT);
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(RELE_ON, OUTPUT);
+    pinMode(RELE_OFF, OUTPUT);
     
-    if(MODO) {
-        puerta.attach(SERVO_PIN);
-        puerta.write(0); //Empeza en la posicion de cerrado
-    }
-    else {
-        pinMode(LATCH_PIN, OUTPUT);
-    }
     Serial.begin(9600);
 
     finger.begin(57601);
@@ -86,55 +68,20 @@ void verificarModulo() {
     }
 }
 
-#if (defined(SERVO))
 /**************************************************************************/
 /*!
-    @brief  Gira 180 grados el servo por un tiempo para luego cerrarlo haciendo
-    sonar la alarma
-    TODO Eliminar el tiempo y hace que conmute entre cerrado y abierto con
-    el sensor de huellas
+    @brief  Alterna los reles de la ultima vez que se activo, luego de 50
+    milisengudos, apaga los reles
 */
 /**************************************************************************/
-void abrirPuerta() {    //SERVO
-    Serial.println(" AUTORIZADA *** ");
-    digitalWrite(BUZZER_PIN, HIGH);     //Hace un sonido el buzzer
-    puerta.write(180);                  //Gira el servo para abrir la puerta
-    delay(1500);
-    
-    digitalWrite(BUZZER_PIN, LOW);      //Deja de sonar el buzzer
-    delay(3000);
-    puerta.write(0);                    //Gira el servo para cerrar la puerta
-}
+void abrirPuerta() {
+    estadoPuerta = !estadoPuerta;
+    digitalWrite(RELE_ON, estadoPuerta);
+    digitalWrite(RELE_OFF, !estadoPuerta);
+    delay(50);
+    digitalWrite(RELE_ON, LOW);
+    digitalWrite(RELE_OFF, LOW);
 
-#elif (defined(CERROJO))
-/**************************************************************************/
-/*!
-    @brief  Da corriente al pin en donde esta conectado el cerrojo haciendo
-    sonar la alarma
-*/
-/**************************************************************************/
-void abrirPuerta() {    //CERROJO
-    
-    digitalWrite(BUZZER_PIN, HIGH);
-    digitalWrite(LATCH_PIN, HIGH);
-    delay(2500);
-
-    digitalWrite(BUZZER_PIN, HIGH);
-    digitalWrite(LATCH_PIN, HIGH);
-}
-#endif
-
-/**************************************************************************/
-/*!
-    @brief  Hace sonar el buzzer avisando de que la huella es incorrecta
-*/
-/**************************************************************************/
-void huellaIncorrecta() {
-    for (int i = 0; i <= 5; i++) {      //*3,14 3,14 3,14 3,14*
-        digitalWrite(BUZZER_PIN, i % 2);
-        delay(BUZZER_ERROR_TIME);
-    }
-    digitalWrite(BUZZER_PIN, LOW);
 }
 
 /**************************************************************************/
@@ -152,13 +99,8 @@ int autenticarHuella() {
     if (p != FINGERPRINT_OK) return -1;
 
     p = finger.fingerFastSearch();
-    if (p == FINGERPRINT_NOMATCH) {
-        huellaIncorrecta();     //Si se presiono el dedo, pero no coincide, hace sonar el buzzer
-        return -1;
-    }
-    else if (p != FINGERPRINT_OK) {
-        return -1;              //Aca no paso nada, andate y no hagas nada
-    }
+    if (p != FINGERPRINT_OK) return -1;         //Aca no paso nada, andate y no hagas nada
+    
     
     
     sprintf(strBuf, "ID#%d\n AUTORIZADA *** ", finger.fingerID);
