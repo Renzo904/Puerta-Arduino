@@ -1,5 +1,6 @@
 #include <Adafruit_Fingerprint.h>
 #include <Servo.h>
+#include <EEPROM.h>
 
 #define SENSOR_TX 2
 #define SENSOR_RX 3
@@ -14,7 +15,8 @@
 SoftwareSerial mySerial(SENSOR_TX, SENSOR_RX);
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 char strBuf[50];
-bool estadoPuerta = false;
+int eepromEstadoID = 1;
+bool estadoPuerta = EEPROM.read(eepromEstadoID);
 
 
 /*
@@ -76,6 +78,8 @@ void verificarModulo() {
 /**************************************************************************/
 void abrirPuerta() {
     estadoPuerta = !estadoPuerta;
+    EEPROM.update(eepromEstadoID, estadoPuerta);
+    
     digitalWrite(RELE_ON, estadoPuerta);
     digitalWrite(RELE_OFF, !estadoPuerta);
     delay(50);
